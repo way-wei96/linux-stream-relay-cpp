@@ -4,7 +4,7 @@
 
 ## 当前进度
 
-第一刀：单文件 `main.cpp`，stdin → stdout 阻塞中继。
+单文件 `main.cpp`：阻塞中继；可选 `[infile]`，缺省 / `-` → stdin；输出仍为 stdout。
 
 ## 编译
 
@@ -17,4 +17,5 @@ c++ -std=c++17 -Wall -Wextra -g -O0 -o build/relay src/main.cpp
 
 ```text
 echo 'hello' | ./build/relay
+./build/relay some.bin
 ```
