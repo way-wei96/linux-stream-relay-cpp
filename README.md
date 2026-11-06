@@ -4,7 +4,7 @@
 
 ## 当前进度
 
-单文件 `main.cpp`：阻塞中继；可选 `[infile [outfile]]`，缺省 / `-` → 标准流。
+单文件：阻塞中继；可选 `[infile [outfile]]`；写出抽成 `write_fully`。
 
 ## 编译
 

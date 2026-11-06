@@ -31,6 +31,22 @@ static void close_if_opened(int fd, int std_fd)
     ::close(fd);
 }
 
+/* 把 buf 里 nbytes 全部写出；短写则继续。成功 true。 */
+static bool write_fully(int out_fd, const std::uint8_t *buf, std::size_t nbytes)
+{
+  std::size_t off = 0;
+  while (off < nbytes) {
+    ssize_t w = ::write(out_fd, buf + off, nbytes - off);
+    if (w < 0) {
+      if (errno == EINTR)
+        continue;
+      return false;
+    }
+    off += static_cast<std::size_t>(w);
+  }
+  return true;
+}
+
 /* 阻塞中继 in_fd → out_fd。成功 true。 */
 static bool relay_bytes(int in_fd, int out_fd)
 {
@@ -47,16 +63,9 @@ static bool relay_bytes(int in_fd, int out_fd)
     if (n == 0)
       return true;
 
-    std::size_t off = 0;
-    while (off < static_cast<std::size_t>(n)) {
-      ssize_t w = ::write(out_fd, buf.data() + off, n - off);
-      if (w < 0) {
-        if (errno == EINTR)
-          continue;
-        std::perror("write");
-        return false;
-      }
-      off += static_cast<std::size_t>(w);
+    if (!write_fully(out_fd, buf.data(), static_cast<std::size_t>(n))) {
+      std::perror("write");
+      return false;
     }
   }
 }
