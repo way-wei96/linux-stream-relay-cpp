@@ -7,13 +7,17 @@
 #include <array>
 #include <cstdint>
 
-/* 打开输入：nullptr / "-" → stdin。失败 -1。 */
-static int open_input(const char *path)
+/*
+ * 打开路径；nullptr / "-" → 返回 std_fd。
+ * 带 O_CREAT 时用 mode 0666。失败 -1。
+ */
+static int open_endpoint(const char *path, int std_fd, int flags)
 {
   if (path == nullptr || std::strcmp(path, "-") == 0)
-    return STDIN_FILENO;
+    return std_fd;
 
-  int fd = ::open(path, O_RDONLY);
+  int fd = (flags & O_CREAT) != 0 ? ::open(path, flags, 0666)
+                                  : ::open(path, flags);
   if (fd < 0) {
     std::perror("open");
     return -1;
@@ -21,14 +25,14 @@ static int open_input(const char *path)
   return fd;
 }
 
-static void close_if_opened(int fd)
+static void close_if_opened(int fd, int std_fd)
 {
-  if (fd != STDIN_FILENO)
+  if (fd != std_fd)
     ::close(fd);
 }
 
-/* 阻塞中继 in_fd → stdout。成功 true。 */
-static bool relay_bytes(int in_fd)
+/* 阻塞中继 in_fd → out_fd。成功 true。 */
+static bool relay_bytes(int in_fd, int out_fd)
 {
   std::array<std::uint8_t, 1024> buf{};
 
@@ -45,7 +49,7 @@ static bool relay_bytes(int in_fd)
 
     std::size_t off = 0;
     while (off < static_cast<std::size_t>(n)) {
-      ssize_t w = ::write(STDOUT_FILENO, buf.data() + off, n - off);
+      ssize_t w = ::write(out_fd, buf.data() + off, n - off);
       if (w < 0) {
         if (errno == EINTR)
           continue;
@@ -57,23 +61,34 @@ static bool relay_bytes(int in_fd)
   }
 }
 
-/* 用法：relay [infile]；缺省 / "-" → stdin。输出固定 stdout。 */
+/* 用法：relay [infile [outfile]]；缺省 / "-" → 标准流。 */
 int main(int argc, char **argv)
 {
   const char *in_path = nullptr;
+  const char *out_path = nullptr;
 
-  if (argc > 2) {
-    std::fprintf(stderr, "usage: %s [infile]\n", argv[0]);
+  if (argc > 3) {
+    std::fprintf(stderr, "usage: %s [infile [outfile]]\n", argv[0]);
     return 1;
   }
-  if (argc == 2)
+  if (argc >= 2)
     in_path = argv[1];
+  if (argc == 3)
+    out_path = argv[2];
 
-  int in_fd = open_input(in_path);
+  int in_fd = open_endpoint(in_path, STDIN_FILENO, O_RDONLY);
   if (in_fd < 0)
     return 1;
 
-  bool ok = relay_bytes(in_fd);
-  close_if_opened(in_fd);
+  int out_fd =
+      open_endpoint(out_path, STDOUT_FILENO, O_WRONLY | O_CREAT | O_TRUNC);
+  if (out_fd < 0) {
+    close_if_opened(in_fd, STDIN_FILENO);
+    return 1;
+  }
+
+  bool ok = relay_bytes(in_fd, out_fd);
+  close_if_opened(in_fd, STDIN_FILENO);
+  close_if_opened(out_fd, STDOUT_FILENO);
   return ok ? 0 : 1;
 }
