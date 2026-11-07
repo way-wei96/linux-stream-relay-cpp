@@ -4,18 +4,18 @@
 
 ## 当前进度
 
-单文件：`namespace relay`；极简 `UniqueFd`（析构 close；拷贝已 `= delete`）。
+`UniqueFd` 拆到 `unique_fd.hpp`；其余仍在 `main.cpp` 的 `namespace relay`。
 
 ## 编译
 
-必须带上 **`-std=c++17`**（`std::optional` 需要）；漏掉会报 `no template named 'optional'`。
+必须带上 **`-std=c++17`**（`std::optional` 需要）；并用 **`-Isrc`** 找到自己的头文件。
 
 ```text
 mkdir -p build
-c++ -std=c++17 -Wall -Wextra -g -O0 -o build/relay src/main.cpp
+c++ -std=c++17 -Wall -Wextra -g -O0 -Isrc -o build/relay src/main.cpp
 ```
 
-（仓库里有 `compile_flags.txt`，方便编辑器按 C++17 做检查。）
+（`compile_flags.txt` 已含这些选项，方便编辑器检查。）
 
 ## 运行
 
