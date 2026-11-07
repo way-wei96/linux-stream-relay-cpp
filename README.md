@@ -4,7 +4,7 @@
 
 ## 当前进度
 
-单文件：阻塞中继；路径用 `optional<string>`；辅助函数放在 `namespace relay`。
+单文件：`namespace relay`；路径用 `optional<string>`；极简 `UniqueFd`（只负责析构 close）。
 
 ## 编译
 

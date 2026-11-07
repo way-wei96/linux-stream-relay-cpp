@@ -11,30 +11,50 @@
 namespace relay {
 
 /*
- * 打开路径；无值 / "-" → 返回 std_fd。
- * 带 O_CREAT 时用 mode 0666。失败 -1。
+ * 只管一件事：对象没了且 owns 为 true 时 close。
+ * 不 return / 不拷贝这个对象，避免双 close；所以不必写 delete、移动。
  */
-int open_endpoint(const std::optional<std::string> &path, int std_fd, int flags)
+class UniqueFd {
+public:
+  UniqueFd(int fd, bool owns) : fd_(fd), owns_(owns) {}
+
+  ~UniqueFd()
+  {
+    if (owns_ && fd_ >= 0)
+      ::close(fd_);
+  }
+
+  int get() const { return fd_; }
+
+private:
+  int fd_;
+  bool owns_;
+};
+
+/*
+ * 打开路径；无值 / "-" → *out_fd = std_fd，*out_owns = false。
+ * 成功 true；失败 false。
+ */
+bool open_endpoint(const std::optional<std::string> &path, int std_fd, int flags,
+                   int *out_fd, bool *out_owns)
 {
-  if (!path.has_value() || *path == "-")
-    return std_fd;
+  if (!path.has_value() || *path == "-") {
+    *out_fd = std_fd;
+    *out_owns = false;
+    return true;
+  }
 
   int fd = (flags & O_CREAT) != 0 ? ::open(path->c_str(), flags, 0666)
                                   : ::open(path->c_str(), flags);
   if (fd < 0) {
     std::perror("open");
-    return -1;
+    return false;
   }
-  return fd;
+  *out_fd = fd;
+  *out_owns = true;
+  return true;
 }
 
-void close_if_opened(int fd, int std_fd)
-{
-  if (fd != std_fd)
-    ::close(fd);
-}
-
-/* 把 buf 里 nbytes 全部写出；短写则继续。成功 true。 */
 bool write_fully(int out_fd, const std::uint8_t *buf, std::size_t nbytes)
 {
   std::size_t off = 0;
@@ -50,7 +70,6 @@ bool write_fully(int out_fd, const std::uint8_t *buf, std::size_t nbytes)
   return true;
 }
 
-/* 阻塞中继 in_fd → out_fd。成功 true。 */
 bool relay_bytes(int in_fd, int out_fd)
 {
   std::array<std::uint8_t, 1024> buf{};
@@ -75,7 +94,6 @@ bool relay_bytes(int in_fd, int out_fd)
 
 } // namespace relay
 
-/* 用法：relay [infile [outfile]]；缺省 / "-" → 标准流。 */
 int main(int argc, char **argv)
 {
   std::optional<std::string> in_path;
@@ -90,19 +108,20 @@ int main(int argc, char **argv)
   if (argc == 3)
     out_path = argv[2];
 
-  int in_fd = relay::open_endpoint(in_path, STDIN_FILENO, O_RDONLY);
-  if (in_fd < 0)
+  int in_raw = -1;
+  bool in_owns = false;
+  if (!relay::open_endpoint(in_path, STDIN_FILENO, O_RDONLY, &in_raw,
+                            &in_owns))
     return 1;
+  relay::UniqueFd in_fd(in_raw, in_owns);
 
-  int out_fd = relay::open_endpoint(out_path, STDOUT_FILENO,
-                                    O_WRONLY | O_CREAT | O_TRUNC);
-  if (out_fd < 0) {
-    relay::close_if_opened(in_fd, STDIN_FILENO);
+  int out_raw = -1;
+  bool out_owns = false;
+  if (!relay::open_endpoint(out_path, STDOUT_FILENO,
+                            O_WRONLY | O_CREAT | O_TRUNC, &out_raw,
+                            &out_owns))
     return 1;
-  }
+  relay::UniqueFd out_fd(out_raw, out_owns);
 
-  bool ok = relay::relay_bytes(in_fd, out_fd);
-  relay::close_if_opened(in_fd, STDIN_FILENO);
-  relay::close_if_opened(out_fd, STDOUT_FILENO);
-  return ok ? 0 : 1;
+  return relay::relay_bytes(in_fd.get(), out_fd.get()) ? 0 : 1;
 }
