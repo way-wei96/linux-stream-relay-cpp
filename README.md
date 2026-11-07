@@ -4,7 +4,7 @@
 
 ## 当前进度
 
-单文件：`namespace relay`；路径用 `optional<string>`；极简 `UniqueFd`（只负责析构 close）。
+单文件：`namespace relay`；极简 `UniqueFd`（析构 close；拷贝已 `= delete`）。
 
 ## 编译
 

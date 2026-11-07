@@ -12,7 +12,7 @@ namespace relay {
 
 /*
  * 只管一件事：对象没了且 owns 为 true 时 close。
- * 不 return / 不拷贝这个对象，避免双 close；所以不必写 delete、移动。
+ * 禁止拷贝：两个对象握同一 fd 会 close 两次。
  */
 class UniqueFd {
 public:
@@ -23,6 +23,9 @@ public:
     if (owns_ && fd_ >= 0)
       ::close(fd_);
   }
+
+  UniqueFd(const UniqueFd &) = delete;
+  UniqueFd &operator=(const UniqueFd &) = delete;
 
   int get() const { return fd_; }
 
