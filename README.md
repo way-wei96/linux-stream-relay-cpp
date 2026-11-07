@@ -4,15 +4,16 @@
 
 ## 当前进度
 
-`UniqueFd` 拆到 `unique_fd.hpp`；其余仍在 `main.cpp` 的 `namespace relay`。
+`UniqueFd` → `unique_fd.hpp`；`open_endpoint` → `endpoint.hpp` / `endpoint.cpp`。
 
 ## 编译
 
-必须带上 **`-std=c++17`**（`std::optional` 需要）；并用 **`-Isrc`** 找到自己的头文件。
+必须 **`-std=c++17`**、**`-Isrc`**；多个 `.cpp` 一起编译链接。
 
 ```text
 mkdir -p build
-c++ -std=c++17 -Wall -Wextra -g -O0 -Isrc -o build/relay src/main.cpp
+c++ -std=c++17 -Wall -Wextra -g -O0 -Isrc \
+  -o build/relay src/main.cpp src/endpoint.cpp
 ```
 
 （`compile_flags.txt` 已含这些选项，方便编辑器检查。）

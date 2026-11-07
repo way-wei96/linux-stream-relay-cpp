@@ -1,3 +1,4 @@
+#include "endpoint.hpp"
 #include "unique_fd.hpp"
 
 #include <cerrno>
@@ -11,30 +12,6 @@
 #include <string>
 
 namespace relay {
-
-/*
- * 打开路径；无值 / "-" → *out_fd = std_fd，*out_owns = false。
- * 成功 true；失败 false。
- */
-bool open_endpoint(const std::optional<std::string> &path, int std_fd, int flags,
-                   int *out_fd, bool *out_owns)
-{
-  if (!path.has_value() || *path == "-") {
-    *out_fd = std_fd;
-    *out_owns = false;
-    return true;
-  }
-
-  int fd = (flags & O_CREAT) != 0 ? ::open(path->c_str(), flags, 0666)
-                                  : ::open(path->c_str(), flags);
-  if (fd < 0) {
-    std::perror("open");
-    return false;
-  }
-  *out_fd = fd;
-  *out_owns = true;
-  return true;
-}
 
 bool write_fully(int out_fd, const std::uint8_t *buf, std::size_t nbytes)
 {
