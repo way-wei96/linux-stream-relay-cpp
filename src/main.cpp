@@ -9,19 +9,32 @@
 #include <optional>
 #include <string>
 
+/* 解析 [infile [outfile]]。成功 true。 */
+static bool parse_args(int argc, char **argv,
+                       std::optional<std::string> *in_path,
+                       std::optional<std::string> *out_path)
+{
+  in_path->reset();
+  out_path->reset();
+
+  if (argc > 3) {
+    std::fprintf(stderr, "usage: %s [infile [outfile]]\n", argv[0]);
+    return false;
+  }
+  if (argc >= 2)
+    *in_path = argv[1];
+  if (argc == 3)
+    *out_path = argv[2];
+  return true;
+}
+
 int main(int argc, char **argv)
 {
   std::optional<std::string> in_path;
   std::optional<std::string> out_path;
 
-  if (argc > 3) {
-    std::fprintf(stderr, "usage: %s [infile [outfile]]\n", argv[0]);
+  if (!parse_args(argc, argv, &in_path, &out_path))
     return 1;
-  }
-  if (argc >= 2)
-    in_path = argv[1];
-  if (argc == 3)
-    out_path = argv[2];
 
   int in_raw = -1;
   bool in_owns = false;

@@ -7,7 +7,7 @@
 - `unique_fd.hpp`：`UniqueFd`
 - `endpoint.hpp` / `.cpp`：`open_endpoint`
 - `relay_io.hpp` / `.cpp`：`relay_bytes`（内部 `write_fully`）
-- `main.cpp`：参数与组装
+- `main.cpp`：`parse_args` 小函数 + 组装
 
 ## 编译
 
