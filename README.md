@@ -4,19 +4,20 @@
 
 ## 当前进度
 
-`UniqueFd` → `unique_fd.hpp`；`open_endpoint` → `endpoint.hpp` / `endpoint.cpp`。
+- `unique_fd.hpp`：`UniqueFd`
+- `endpoint.hpp` / `.cpp`：`open_endpoint`
+- `relay_io.hpp` / `.cpp`：`relay_bytes`（内部 `write_fully`）
+- `main.cpp`：参数与组装
 
 ## 编译
-
-必须 **`-std=c++17`**、**`-Isrc`**；多个 `.cpp` 一起编译链接。
 
 ```text
 mkdir -p build
 c++ -std=c++17 -Wall -Wextra -g -O0 -Isrc \
-  -o build/relay src/main.cpp src/endpoint.cpp
+  -o build/relay src/main.cpp src/endpoint.cpp src/relay_io.cpp
 ```
 
-（`compile_flags.txt` 已含这些选项，方便编辑器检查。）
+（`compile_flags.txt` 已含 `-std=c++17`、`-Isrc`。）
 
 ## 运行
 
