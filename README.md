@@ -4,7 +4,7 @@
 
 ## 当前进度
 
-单文件：阻塞中继；可选 `[infile [outfile]]`；路径用 `std::optional<std::string>`。
+单文件：阻塞中继；路径用 `optional<string>`；辅助函数放在 `namespace relay`。
 
 ## 编译
 
