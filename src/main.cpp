@@ -1,23 +1,25 @@
 #include <cerrno>
 #include <cstdio>
-#include <cstring>
 #include <fcntl.h>
 #include <unistd.h>
 
 #include <array>
 #include <cstdint>
+#include <optional>
+#include <string>
 
 /*
- * 打开路径；nullptr / "-" → 返回 std_fd。
+ * 打开路径；无值 / "-" → 返回 std_fd。
  * 带 O_CREAT 时用 mode 0666。失败 -1。
  */
-static int open_endpoint(const char *path, int std_fd, int flags)
+static int open_endpoint(const std::optional<std::string> &path, int std_fd,
+                         int flags)
 {
-  if (path == nullptr || std::strcmp(path, "-") == 0)
+  if (!path.has_value() || *path == "-")
     return std_fd;
 
-  int fd = (flags & O_CREAT) != 0 ? ::open(path, flags, 0666)
-                                  : ::open(path, flags);
+  int fd = (flags & O_CREAT) != 0 ? ::open(path->c_str(), flags, 0666)
+                                  : ::open(path->c_str(), flags);
   if (fd < 0) {
     std::perror("open");
     return -1;
@@ -73,8 +75,8 @@ static bool relay_bytes(int in_fd, int out_fd)
 /* 用法：relay [infile [outfile]]；缺省 / "-" → 标准流。 */
 int main(int argc, char **argv)
 {
-  const char *in_path = nullptr;
-  const char *out_path = nullptr;
+  std::optional<std::string> in_path;
+  std::optional<std::string> out_path;
 
   if (argc > 3) {
     std::fprintf(stderr, "usage: %s [infile [outfile]]\n", argv[0]);

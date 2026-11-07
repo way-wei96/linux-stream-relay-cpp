@@ -4,14 +4,18 @@
 
 ## 当前进度
 
-单文件：阻塞中继；可选 `[infile [outfile]]`；写出抽成 `write_fully`。
+单文件：阻塞中继；可选 `[infile [outfile]]`；路径用 `std::optional<std::string>`。
 
 ## 编译
+
+必须带上 **`-std=c++17`**（`std::optional` 需要）；漏掉会报 `no template named 'optional'`。
 
 ```text
 mkdir -p build
 c++ -std=c++17 -Wall -Wextra -g -O0 -o build/relay src/main.cpp
 ```
+
+（仓库里有 `compile_flags.txt`，方便编辑器按 C++17 做检查。）
 
 ## 运行
 
