@@ -9,7 +9,7 @@
 - `relay_io.hpp` / `.cpp`：`relay_bytes`（单线程中继，现未再走）
 - `ring_buffer.hpp`：`RingBuffer`（mutex + condition_variable；push 短超时可看见停）
 - `stop_flag.hpp` / `.cpp`：`SIGINT` → 旗；读侧 `close` 优雅停，写侧排空
-- `main.cpp`：读线程 `push`、写线程 `pop`，主线程只 `join`
+- `main.cpp`：读线程先短超时 `poll` 再 `read`/`push`；写线程 `pop`；主线程只 `join`
 
 ## 编译
 

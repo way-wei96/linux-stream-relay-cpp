@@ -6,6 +6,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <fcntl.h>
+#include <poll.h>
 #include <unistd.h>
 
 #include <array>
@@ -13,6 +14,8 @@
 #include <optional>
 #include <string>
 #include <thread>
+
+static constexpr int kReaderPollMs = 100;
 
 /* 解析 [infile [outfile]]。成功 true。 */
 static bool parse_args(int argc, char **argv,
@@ -48,13 +51,58 @@ static bool write_fully(int out_fd, const std::uint8_t *data, std::size_t nbytes
   return true;
 }
 
-/* 只读：fd → ring。EOF / Ctrl+C → close；出错 fail。 */
+/*
+ * 短超时 poll，等 in_fd 可读。
+ * 1 = 可读/对端挂起，可去 read；0 = 该停；-1 = 失败。
+ */
+static int wait_input_readable(int in_fd)
+{
+  for (;;) {
+    if (relay::stop_requested())
+      return 0;
+
+    pollfd pfd{};
+    pfd.fd = in_fd;
+    pfd.events = POLLIN;
+
+    int rc = ::poll(&pfd, 1, kReaderPollMs);
+    if (rc < 0) {
+      if (errno == EINTR) {
+        if (relay::stop_requested())
+          return 0;
+        continue;
+      }
+      return -1;
+    }
+    if (rc == 0)
+      continue;
+
+    if (pfd.revents & (POLLERR | POLLNVAL))
+      return -1;
+    if (pfd.revents & (POLLIN | POLLHUP))
+      return 1;
+  }
+}
+
+/* 只读：先 poll 再 read。EOF / Ctrl+C → close；出错 fail。 */
 static void reader_task(int in_fd, relay::RingBuffer *ring, bool *reader_ok)
 {
   std::array<std::uint8_t, 1024> chunk{};
   for (;;) {
     if (relay::stop_requested()) {
       ring->close();
+      return;
+    }
+
+    int wait_status = wait_input_readable(in_fd);
+    if (wait_status == 0) {
+      ring->close();
+      return;
+    }
+    if (wait_status < 0) {
+      std::perror("poll");
+      *reader_ok = false;
+      ring->fail();
       return;
     }
 
