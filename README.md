@@ -6,8 +6,9 @@
 
 - `unique_fd.hpp`：`UniqueFd`
 - `endpoint.hpp` / `.cpp`：`open_endpoint`
-- `relay_io.hpp` / `.cpp`：`relay_bytes`（内部 `write_fully`）
-- `main.cpp`：组装；读线程里跑 `relay_bytes`，写线程仍空跑并 `join`
+- `relay_io.hpp` / `.cpp`：`relay_bytes`（单线程中继，现未再走）
+- `ring_buffer.hpp`：`RingBuffer`（mutex + condition_variable）
+- `main.cpp`：读线程 `push`、写线程 `pop`，主线程只 `join`
 
 ## 编译
 

@@ -1,11 +1,14 @@
 #include "endpoint.hpp"
-#include "relay_io.hpp"
+#include "ring_buffer.hpp"
 #include "unique_fd.hpp"
 
+#include <cerrno>
 #include <cstdio>
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <array>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <thread>
@@ -29,13 +32,62 @@ static bool parse_args(int argc, char **argv,
   return true;
 }
 
-/* 本半步：读线程里做完整中继。写线程仍空跑，下一刀再拆读写。 */
-static void reader_task(int in_fd, int out_fd, bool *ok)
+static bool write_fully(int out_fd, const std::uint8_t *data, std::size_t nbytes)
 {
-  *ok = relay::relay_bytes(in_fd, out_fd);
+  std::size_t off = 0;
+  while (off < nbytes) {
+    ssize_t w = ::write(out_fd, data + off, nbytes - off);
+    if (w < 0) {
+      if (errno == EINTR)
+        continue;
+      return false;
+    }
+    off += static_cast<std::size_t>(w);
+  }
+  return true;
 }
 
-static void writer_task() {}
+/* 只读：fd → ring。EOF 后 close；出错 fail。 */
+static void reader_task(int in_fd, relay::RingBuffer *ring, bool *reader_ok)
+{
+  std::array<std::uint8_t, 1024> chunk{};
+  for (;;) {
+    ssize_t n = ::read(in_fd, chunk.data(), chunk.size());
+    if (n < 0) {
+      if (errno == EINTR)
+        continue;
+      std::perror("read");
+      *reader_ok = false;
+      ring->fail();
+      return;
+    }
+    if (n == 0) {
+      ring->close();
+      return;
+    }
+    if (!ring->push(chunk.data(), static_cast<std::size_t>(n))) {
+      *reader_ok = false;
+      return;
+    }
+  }
+}
+
+/* 只写：ring → fd。pop 到 0 结束；写出错 fail。 */
+static void writer_task(int out_fd, relay::RingBuffer *ring, bool *writer_ok)
+{
+  std::array<std::uint8_t, 1024> chunk{};
+  for (;;) {
+    std::size_t n = ring->pop(chunk.data(), chunk.size());
+    if (n == 0)
+      return;
+    if (!write_fully(out_fd, chunk.data(), n)) {
+      std::perror("write");
+      *writer_ok = false;
+      ring->fail();
+      return;
+    }
+  }
+}
 
 int main(int argc, char **argv)
 {
@@ -60,10 +112,12 @@ int main(int argc, char **argv)
     return 1;
   relay::UniqueFd out_fd(out_raw, out_owns);
 
-  bool ok = false;
-  std::thread reader(reader_task, in_fd.get(), out_fd.get(), &ok);
-  std::thread writer(writer_task);
+  relay::RingBuffer ring;
+  bool reader_ok = true;
+  bool writer_ok = true;
+  std::thread reader(reader_task, in_fd.get(), &ring, &reader_ok);
+  std::thread writer(writer_task, out_fd.get(), &ring, &writer_ok);
   reader.join();
   writer.join();
-  return ok ? 0 : 1;
+  return (reader_ok && writer_ok) ? 0 : 1;
 }
