@@ -7,17 +7,17 @@
 - `unique_fd.hpp`：`UniqueFd`
 - `endpoint.hpp` / `.cpp`：`open_endpoint`
 - `relay_io.hpp` / `.cpp`：`relay_bytes`（内部 `write_fully`）
-- `main.cpp`：`parse_args` 小函数 + 组装
+- `main.cpp`：组装；读线程里跑 `relay_bytes`，写线程仍空跑并 `join`
 
 ## 编译
 
 ```text
 mkdir -p build
-c++ -std=c++17 -Wall -Wextra -g -O0 -Isrc \
+c++ -std=c++17 -Wall -Wextra -g -O0 -pthread -Isrc \
   -o build/relay src/main.cpp src/endpoint.cpp src/relay_io.cpp
 ```
 
-（`compile_flags.txt` 已含 `-std=c++17`、`-Isrc`。）
+（`compile_flags.txt` 已含常用选项；链接线程请加 `-pthread`。）
 
 ## 运行
 

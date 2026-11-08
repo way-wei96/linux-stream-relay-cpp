@@ -1,4 +1,5 @@
 -std=c++17
 -Wall
 -Wextra
+-pthread
 -Isrc

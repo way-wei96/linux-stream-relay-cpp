@@ -8,6 +8,7 @@
 
 #include <optional>
 #include <string>
+#include <thread>
 
 /* 解析 [infile [outfile]]。成功 true。 */
 static bool parse_args(int argc, char **argv,
@@ -27,6 +28,14 @@ static bool parse_args(int argc, char **argv,
     *out_path = argv[2];
   return true;
 }
+
+/* 本半步：读线程里做完整中继。写线程仍空跑，下一刀再拆读写。 */
+static void reader_task(int in_fd, int out_fd, bool *ok)
+{
+  *ok = relay::relay_bytes(in_fd, out_fd);
+}
+
+static void writer_task() {}
 
 int main(int argc, char **argv)
 {
@@ -51,5 +60,10 @@ int main(int argc, char **argv)
     return 1;
   relay::UniqueFd out_fd(out_raw, out_owns);
 
-  return relay::relay_bytes(in_fd.get(), out_fd.get()) ? 0 : 1;
+  bool ok = false;
+  std::thread reader(reader_task, in_fd.get(), out_fd.get(), &ok);
+  std::thread writer(writer_task);
+  reader.join();
+  writer.join();
+  return ok ? 0 : 1;
 }
