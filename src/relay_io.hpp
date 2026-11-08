@@ -1,10 +1,13 @@
 #ifndef RELAY_IO_HPP
 #define RELAY_IO_HPP
 
+#include <cstddef>
+#include <cstdint>
+
 namespace relay {
 
-/* 阻塞中继 in_fd → out_fd。成功 true。 */
-bool relay_bytes(int in_fd, int out_fd);
+/* 把 data[0..nbytes) 写完；短写会继续。成功 true。 */
+bool write_fully(int out_fd, const std::uint8_t *data, std::size_t nbytes);
 
 } // namespace relay
 

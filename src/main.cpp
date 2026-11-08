@@ -1,4 +1,5 @@
 #include "endpoint.hpp"
+#include "relay_io.hpp"
 #include "ring_buffer.hpp"
 #include "stop_flag.hpp"
 #include "unique_fd.hpp"
@@ -33,21 +34,6 @@ static bool parse_args(int argc, char **argv,
     *in_path = argv[1];
   if (argc == 3)
     *out_path = argv[2];
-  return true;
-}
-
-static bool write_fully(int out_fd, const std::uint8_t *data, std::size_t nbytes)
-{
-  std::size_t off = 0;
-  while (off < nbytes) {
-    ssize_t w = ::write(out_fd, data + off, nbytes - off);
-    if (w < 0) {
-      if (errno == EINTR)
-        continue;
-      return false;
-    }
-    off += static_cast<std::size_t>(w);
-  }
   return true;
 }
 
@@ -143,7 +129,7 @@ static void writer_task(int out_fd, relay::RingBuffer *ring, bool *writer_ok)
     std::size_t n = ring->pop(chunk.data(), chunk.size());
     if (n == 0)
       return;
-    if (!write_fully(out_fd, chunk.data(), n)) {
+    if (!relay::write_fully(out_fd, chunk.data(), n)) {
       std::perror("write");
       *writer_ok = false;
       ring->fail();
