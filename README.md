@@ -7,7 +7,8 @@
 - `unique_fd.hpp`：`UniqueFd`
 - `endpoint.hpp` / `.cpp`：`open_endpoint`
 - `relay_io.hpp` / `.cpp`：`relay_bytes`（单线程中继，现未再走）
-- `ring_buffer.hpp`：`RingBuffer`（mutex + condition_variable）
+- `ring_buffer.hpp`：`RingBuffer`（mutex + condition_variable；push 短超时可看见停）
+- `stop_flag.hpp` / `.cpp`：`SIGINT` → 旗；读侧 `close` 优雅停，写侧排空
 - `main.cpp`：读线程 `push`、写线程 `pop`，主线程只 `join`
 
 ## 编译
@@ -15,7 +16,8 @@
 ```text
 mkdir -p build
 c++ -std=c++17 -Wall -Wextra -g -O0 -pthread -Isrc \
-  -o build/relay src/main.cpp src/endpoint.cpp src/relay_io.cpp
+  -o build/relay src/main.cpp src/endpoint.cpp src/relay_io.cpp \
+  src/stop_flag.cpp
 ```
 
 （`compile_flags.txt` 已含常用选项；链接线程请加 `-pthread`。）

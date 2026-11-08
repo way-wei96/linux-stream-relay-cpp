@@ -1,6 +1,9 @@
 #ifndef RELAY_RING_BUFFER_HPP
 #define RELAY_RING_BUFFER_HPP
 
+#include "stop_flag.hpp"
+
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <mutex>
@@ -9,19 +12,24 @@ namespace relay {
 
 /*
  * 固定容量环形缓冲：读线程 push，写线程 pop。
- * close = 正常 EOF；fail = 任一侧出错，唤醒对方退出。
+ * close = 正常 EOF / 优雅停；fail = 任一侧出错，唤醒对方退出。
  */
 class RingBuffer {
 public:
   static constexpr std::size_t kCap = 4096;
+  static constexpr auto kWait = std::chrono::milliseconds(100);
 
-  /* 阻塞把 src[0..n) 放进篮子。fail 后返回 false。 */
+  /* 阻塞把 src[0..n) 放进篮子。fail 或 stop 后返回 false。 */
   bool push(const std::uint8_t *src, std::size_t n)
   {
     std::size_t off = 0;
     std::unique_lock<std::mutex> lk{mu_};
     while (off < n) {
-      cv_.wait(lk, [this] { return size_ < kCap || failed_; });
+      while (size_ >= kCap && !failed_) {
+        if (stop_requested())
+          return false;
+        cv_.wait_for(lk, kWait, [this] { return size_ < kCap || failed_; });
+      }
       if (failed_)
         return false;
       while (off < n && size_ < kCap) {
@@ -34,11 +42,14 @@ public:
     return true;
   }
 
-  /* 从篮子舀到 dst，最多 n 字节。0 = 已 close/fail 且空。 */
+  /* 从篮子舀到 dst，最多 n 字节。0 = 已 close/fail 且空。写侧不看 stop，要排空。 */
   std::size_t pop(std::uint8_t *dst, std::size_t n)
   {
     std::unique_lock<std::mutex> lk{mu_};
-    cv_.wait(lk, [this] { return size_ > 0 || closed_ || failed_; });
+    while (size_ == 0 && !closed_ && !failed_)
+      cv_.wait_for(lk, kWait, [this] {
+        return size_ > 0 || closed_ || failed_;
+      });
     if (size_ == 0)
       return 0;
 

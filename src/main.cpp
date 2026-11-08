@@ -1,5 +1,6 @@
 #include "endpoint.hpp"
 #include "ring_buffer.hpp"
+#include "stop_flag.hpp"
 #include "unique_fd.hpp"
 
 #include <cerrno>
@@ -47,15 +48,25 @@ static bool write_fully(int out_fd, const std::uint8_t *data, std::size_t nbytes
   return true;
 }
 
-/* 只读：fd → ring。EOF 后 close；出错 fail。 */
+/* 只读：fd → ring。EOF / Ctrl+C → close；出错 fail。 */
 static void reader_task(int in_fd, relay::RingBuffer *ring, bool *reader_ok)
 {
   std::array<std::uint8_t, 1024> chunk{};
   for (;;) {
+    if (relay::stop_requested()) {
+      ring->close();
+      return;
+    }
+
     ssize_t n = ::read(in_fd, chunk.data(), chunk.size());
     if (n < 0) {
-      if (errno == EINTR)
+      if (errno == EINTR) {
+        if (relay::stop_requested()) {
+          ring->close();
+          return;
+        }
         continue;
+      }
       std::perror("read");
       *reader_ok = false;
       ring->fail();
@@ -66,13 +77,17 @@ static void reader_task(int in_fd, relay::RingBuffer *ring, bool *reader_ok)
       return;
     }
     if (!ring->push(chunk.data(), static_cast<std::size_t>(n))) {
+      if (relay::stop_requested()) {
+        ring->close();
+        return;
+      }
       *reader_ok = false;
       return;
     }
   }
 }
 
-/* 只写：ring → fd。pop 到 0 结束；写出错 fail。 */
+/* 只写：ring → fd。pop 到 0 结束；写出错 fail。优雅停仍排空。 */
 static void writer_task(int out_fd, relay::RingBuffer *ring, bool *writer_ok)
 {
   std::array<std::uint8_t, 1024> chunk{};
@@ -91,6 +106,8 @@ static void writer_task(int out_fd, relay::RingBuffer *ring, bool *writer_ok)
 
 int main(int argc, char **argv)
 {
+  relay::install_stop_handlers();
+
   std::optional<std::string> in_path;
   std::optional<std::string> out_path;
 
