@@ -4,7 +4,7 @@
 
 ## 当前进度
 
-- `unique_fd.hpp`：`UniqueFd`
+- `unique_fd.hpp`：`UniqueFd`（禁拷贝，可 move）
 - `endpoint.hpp` / `.cpp`：`open_endpoint`
 - `relay_io.hpp` / `.cpp`：`write_fully`
 - `ring_buffer.hpp`：`RingBuffer`（mutex + condition_variable；push 短超时可看见停）
