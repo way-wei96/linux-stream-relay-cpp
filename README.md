@@ -11,17 +11,17 @@
 - `stop_flag.hpp` / `.cpp`：`SIGINT` → 旗；读侧 `close` 优雅停，写侧排空
 - `relay_workers.hpp` / `.cpp`：`reader_task` / `writer_task`（短超时 `poll` + `enum class WaitResult`）
 - `main.cpp`：解析、打开；`unique_ptr` 握 `RingBuffer`；起线程、`join`
+- `CMakeLists.txt`：C++17 目标 `relay`（`-Wall -Wextra`、pthread）
 
 ## 编译
 
 ```text
-mkdir -p build
-c++ -std=c++17 -Wall -Wextra -g -O0 -pthread -Isrc \
-  -o build/relay src/main.cpp src/endpoint.cpp src/relay_io.cpp \
-  src/relay_workers.cpp src/stop_flag.cpp
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
 ```
 
-（`compile_flags.txt` 已含常用选项；链接线程请加 `-pthread`。）
+产物：`build/relay`。也可用原来的手写 `c++ ...`（见 git 历史）；日常以 CMake 为准。  
+（`compile_flags.txt` 仍给编辑器做补全用。）
 
 ## 运行
 
