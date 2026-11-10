@@ -9,7 +9,8 @@
 - `relay_io.hpp` / `.cpp`：`write_fully`
 - `ring_buffer.hpp`：`RingBuffer`（mutex + condition_variable；push 短超时可看见停）
 - `stop_flag.hpp` / `.cpp`：`SIGINT` → 旗；读侧 `close` 优雅停，写侧排空
-- `main.cpp`：读线程先短超时 `poll` 再 `read`/`push`；写线程 `pop`；主线程只 `join`
+- `relay_workers.hpp` / `.cpp`：`reader_task` / `writer_task`（短超时 `poll` + `enum class WaitResult`）
+- `main.cpp`：解析、打开、起线程、`join`
 
 ## 编译
 
@@ -17,7 +18,7 @@
 mkdir -p build
 c++ -std=c++17 -Wall -Wextra -g -O0 -pthread -Isrc \
   -o build/relay src/main.cpp src/endpoint.cpp src/relay_io.cpp \
-  src/stop_flag.cpp
+  src/relay_workers.cpp src/stop_flag.cpp
 ```
 
 （`compile_flags.txt` 已含常用选项；链接线程请加 `-pthread`。）
