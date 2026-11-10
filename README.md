@@ -10,7 +10,7 @@
 - `ring_buffer.hpp`：`RingBuffer`（mutex + condition_variable；push 短超时可看见停）
 - `stop_flag.hpp` / `.cpp`：`SIGINT` → 旗；读侧 `close` 优雅停，写侧排空
 - `relay_workers.hpp` / `.cpp`：`reader_task` / `writer_task`（短超时 `poll` + `enum class WaitResult`）
-- `main.cpp`：解析、打开、起线程、`join`
+- `main.cpp`：解析、打开；`unique_ptr` 握 `RingBuffer`；起线程、`join`
 
 ## 编译
 

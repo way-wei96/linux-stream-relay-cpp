@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <thread>
@@ -51,11 +52,12 @@ int main(int argc, char **argv)
   if (!output)
     return 1;
 
-  relay::RingBuffer ring;
+  /* unique_ptr：独占堆上的 RingBuffer；join 后再析构，避免线程还在用。 */
+  auto ring = std::make_unique<relay::RingBuffer>();
   bool reader_ok = true;
   bool writer_ok = true;
-  std::thread reader(relay::reader_task, input->get(), &ring, &reader_ok);
-  std::thread writer(relay::writer_task, output->get(), &ring, &writer_ok);
+  std::thread reader(relay::reader_task, input->get(), ring.get(), &reader_ok);
+  std::thread writer(relay::writer_task, output->get(), ring.get(), &writer_ok);
   reader.join();
   writer.join();
   return (reader_ok && writer_ok) ? 0 : 1;
