@@ -148,26 +148,21 @@ int main(int argc, char **argv)
   if (!parse_args(argc, argv, &in_path, &out_path))
     return 1;
 
-  int in_raw = -1;
-  bool in_owns = false;
-  if (!relay::open_endpoint(in_path, STDIN_FILENO, O_RDONLY, &in_raw,
-                            &in_owns))
+  std::optional<relay::UniqueFd> input =
+      relay::open_endpoint(in_path, STDIN_FILENO, O_RDONLY);
+  if (!input)
     return 1;
-  relay::UniqueFd in_fd(in_raw, in_owns);
 
-  int out_raw = -1;
-  bool out_owns = false;
-  if (!relay::open_endpoint(out_path, STDOUT_FILENO,
-                            O_WRONLY | O_CREAT | O_TRUNC, &out_raw,
-                            &out_owns))
+  std::optional<relay::UniqueFd> output = relay::open_endpoint(
+      out_path, STDOUT_FILENO, O_WRONLY | O_CREAT | O_TRUNC);
+  if (!output)
     return 1;
-  relay::UniqueFd out_fd(out_raw, out_owns);
 
   relay::RingBuffer ring;
   bool reader_ok = true;
   bool writer_ok = true;
-  std::thread reader(reader_task, in_fd.get(), &ring, &reader_ok);
-  std::thread writer(writer_task, out_fd.get(), &ring, &writer_ok);
+  std::thread reader(reader_task, input->get(), &ring, &reader_ok);
+  std::thread writer(writer_task, output->get(), &ring, &writer_ok);
   reader.join();
   writer.join();
   return (reader_ok && writer_ok) ? 0 : 1;

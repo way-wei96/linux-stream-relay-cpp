@@ -5,24 +5,19 @@
 
 namespace relay {
 
-bool open_endpoint(const std::optional<std::string> &path, int std_fd, int flags,
-                   int *out_fd, bool *out_owns)
+std::optional<UniqueFd> open_endpoint(const std::optional<std::string> &path,
+                                      int std_fd, int flags)
 {
-  if (!path.has_value() || *path == "-") {
-    *out_fd = std_fd;
-    *out_owns = false;
-    return true;
-  }
+  if (!path.has_value() || *path == "-")
+    return UniqueFd{std_fd, false};
 
   int fd = (flags & O_CREAT) != 0 ? ::open(path->c_str(), flags, 0666)
                                   : ::open(path->c_str(), flags);
   if (fd < 0) {
     std::perror("open");
-    return false;
+    return std::nullopt;
   }
-  *out_fd = fd;
-  *out_owns = true;
-  return true;
+  return UniqueFd{fd, true};
 }
 
 } // namespace relay
